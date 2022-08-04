@@ -1,5 +1,5 @@
 import { concatMap, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
-import { firestore, app } from 'firebase-admin';
+import * as fbApp from 'firebase-admin';
 
 function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observable<any>[] }) {
   let index = 0;
@@ -19,7 +19,7 @@ export class MoyFirestoreManager {
   private commitQueue: Observable<any>[] = [];
   private readDocumentsMap: { [documentId: string]: any } = {};
 
-  constructor(private admin: app.App, private collection: string) {}
+  constructor(private admin: typeof fbApp, private collection: string) {}
 
   doc = (id: string) => {
     return this.readDocumentsMap[id];
@@ -70,7 +70,7 @@ export class MoyFirestoreManager {
     this.expressionToQueue(baseExpression, sideEffect);
   }
 
-  private ref = (id: string): firestore.DocumentReference => {
+  private ref = (id: string): fbApp.firestore.DocumentReference => {
     return this.fs.doc(`${this.collection}/${id}`);
   }
 
