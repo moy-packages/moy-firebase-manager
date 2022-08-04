@@ -79,9 +79,14 @@ var MoyFirestoreManager = /** @class */ (function () {
         this.doc = function (id) {
             return _this.readDocumentsMap[id];
         };
-        this.commit = function () {
+        this.commit = function (_a) {
+            var _b = _a === void 0 ? { dontCommitAndReturnExpression: false } : _a, dontCommitAndReturnExpression = _b.dontCommitAndReturnExpression;
             var obsIterator = obsIteratorFromDynamicArray({ dynamicArray: _this.commitQueue });
-            return rxjs_1.of(true).pipe(rxjs_1.expand(function () { return obsIterator.next().value || rxjs_1.of('__END__'); }), rxjs_1.skipWhile(function (v) { return v !== '__END__'; }), rxjs_1.take(1), rxjs_1.concatMap(function () { return rxjs_1.from(_this.batch.commit()); }), rxjs_1.tap(function () { return _this.reset(); }));
+            var committingObs = rxjs_1.of(true).pipe(rxjs_1.expand(function () { return obsIterator.next().value || rxjs_1.of('__END__'); }), rxjs_1.skipWhile(function (v) { return v !== '__END__'; }), rxjs_1.take(1), rxjs_1.concatMap(function () { return rxjs_1.from(_this.batch.commit()); }), rxjs_1.tap(function () { return _this.reset(); }));
+            if (dontCommitAndReturnExpression) {
+                return committingObs;
+            }
+            committingObs.subscribe();
         };
         this.readToQueue = function (prop, values, sideEffect) {
             var baseExpression = rxjs_1.from(_this.fs.collection(_this.collection).where(prop, 'in', values).get()).pipe(rxjs_1.tap(function (query) { return query.docs.forEach(function (d) { return _this.readDocumentsMap[d.id] = __assign(__assign({}, d.data()), { uid: d.id }); }); }));

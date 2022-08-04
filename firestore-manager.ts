@@ -25,16 +25,22 @@ export class MoyFirestoreManager {
     return this.readDocumentsMap[id];
   }
 
-  commit = () => {
+  commit = ({ dontCommitAndReturnExpression }: { dontCommitAndReturnExpression: boolean } = { dontCommitAndReturnExpression: false }) => {
     const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.commitQueue });
 
-    return of(true).pipe(
+    const committingObs = of(true).pipe(
       expand(() => obsIterator.next().value || of('__END__')),
       skipWhile(v => v !== '__END__'),
       take(1),
       concatMap(() => from(this.batch.commit())),
       tap(() => this.reset()),
     );
+
+    if (dontCommitAndReturnExpression) {
+      return committingObs;
+    }
+
+    committingObs.subscribe();
   }
 
   readToQueue = (prop: string, values: string[], sideEffect?: () => void): void => {
