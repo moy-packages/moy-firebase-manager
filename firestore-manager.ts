@@ -31,7 +31,7 @@ export class MoyFirestoreManager {
   constructor(private admin: typeof fbApp, private collection: string) {}
 
   doc = (id: string): any => {
-    return this.afterCommitCRUD.create[id]?.body;
+    return this.afterCommitCRUD.read[id];
   }
 
   commit = (): Observable<AfterCommitHistory> => {
