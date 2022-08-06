@@ -13,6 +13,8 @@ var __assign = (this && this.__assign) || function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MoyFirestoreMock = void 0;
 var firebase_admin_1 = require("firebase-admin");
+var NEW_DOC_CODE = '__MOCK_NEW_DOC__';
+// todo: separate this class with subclasses etc. Apply a little bit of SOLID here.
 var MoyFirestoreMock = /** @class */ (function () {
     function MoyFirestoreMock(MOCK_DB_TO_USE) {
         var _this = this;
@@ -27,6 +29,7 @@ var MoyFirestoreMock = /** @class */ (function () {
             return jest.spyOn(_this.fs, 'collection').mockImplementation(function (collection) {
                 var dbCollection = _this.db[collection];
                 return {
+                    doc: function (id) { return _this.getObjectRerferenceForPath(collection + "/" + (id || NEW_DOC_CODE), _this.db); },
                     where: function (prop, operator, values) { return ({
                         get: function () {
                             return new Promise(function (resolves) { return resolves({
@@ -83,8 +86,12 @@ var MoyFirestoreMock = /** @class */ (function () {
                     result[_path] = __assign({}, result[_path]);
                     id = _path;
                 }
+                else if (_path === NEW_DOC_CODE) {
+                    id = "newId-" + (Math.random() * 100000).toFixed(0);
+                    result[id] = {};
+                }
                 else {
-                    throw new Error('User does not exist');
+                    throw new Error("Document " + _path + " does not exist");
                 }
                 return result[_path];
             }, from);

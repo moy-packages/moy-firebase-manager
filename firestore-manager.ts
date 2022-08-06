@@ -30,11 +30,11 @@ export class MoyFirestoreManager {
 
   constructor(private admin: typeof fbApp, private collection: string) {}
 
-  doc = (id: string) => {
+  doc = (id: string): any => {
     return this.afterCommitCRUD.create[id]?.body;
   }
 
-  commit = () => {
+  commit = (): Observable<AfterCommitHistory> => {
     const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.commitQueue });
 
     return of(true).pipe(
@@ -89,7 +89,7 @@ export class MoyFirestoreManager {
     return id ? collectionRef.doc(id) : collectionRef.doc();
   }
 
-  private updateAfterCommitCRUD = (id: string, action: CRUD, body: any) => {
+  private updateAfterCommitCRUD = (id: string, action: CRUD, body: any): void => {
     this.afterCommitCRUD[action][id] = {
       ...(this.afterCommitCRUD[action][id]?.body || {}),
       ...body

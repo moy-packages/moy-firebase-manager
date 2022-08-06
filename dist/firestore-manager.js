@@ -67,6 +67,7 @@ function obsIteratorFromDynamicArray(_a) {
         }
     });
 }
+;
 var MoyFirestoreManager = /** @class */ (function () {
     function MoyFirestoreManager(admin, collection) {
         var _this = this;
@@ -75,21 +76,29 @@ var MoyFirestoreManager = /** @class */ (function () {
         this.fs = this.admin.firestore();
         this.batch = this.fs.batch();
         this.commitQueue = [];
-        this.readDocumentsMap = {};
+        this.afterCommitCRUD = { create: {}, read: {}, update: {}, delete: {} };
         this.doc = function (id) {
-            return _this.readDocumentsMap[id];
+            var _a;
+            return (_a = _this.afterCommitCRUD.create[id]) === null || _a === void 0 ? void 0 : _a.body;
         };
-        this.commit = function (_a) {
-            var _b = _a === void 0 ? { dontCommitAndReturnExpression: false } : _a, dontCommitAndReturnExpression = _b.dontCommitAndReturnExpression;
+        this.commit = function () {
             var obsIterator = obsIteratorFromDynamicArray({ dynamicArray: _this.commitQueue });
-            var committingObs = rxjs_1.of(true).pipe(rxjs_1.expand(function () { return obsIterator.next().value || rxjs_1.of('__END__'); }), rxjs_1.skipWhile(function (v) { return v !== '__END__'; }), rxjs_1.take(1), rxjs_1.concatMap(function () { return rxjs_1.from(_this.batch.commit()); }), rxjs_1.tap(function () { return _this.reset(); }));
-            if (dontCommitAndReturnExpression) {
-                return committingObs;
-            }
-            committingObs.subscribe();
+            return rxjs_1.of(true).pipe(rxjs_1.expand(function () { return obsIterator.next().value || rxjs_1.of('__END__'); }), rxjs_1.skipWhile(function (v) { return v !== '__END__'; }), rxjs_1.take(1), rxjs_1.concatMap(function () { return rxjs_1.from(_this.batch.commit()); }), rxjs_1.map(function () { return _this.afterCommitCRUD; }), rxjs_1.tap(function () { return _this.reset(); }));
         };
         this.readToQueue = function (prop, values, sideEffect) {
-            var baseExpression = rxjs_1.from(_this.fs.collection(_this.collection).where(prop, 'in', values).get()).pipe(rxjs_1.tap(function (query) { return query.docs.forEach(function (d) { return _this.readDocumentsMap[d.id] = __assign(__assign({}, d.data()), { uid: d.id }); }); }));
+            var baseExpression = rxjs_1.from(_this.fs.collection(_this.collection).where(prop, 'in', values).get()).pipe(rxjs_1.tap(function (query) { return query.docs.forEach(function (d) { return _this.updateAfterCommitCRUD(d.id, 'read', __assign(__assign({}, d.data()), { uid: d.id })); }); }));
+            _this.expressionToQueue(baseExpression, sideEffect);
+        };
+        this.batchToQueue = function (documentId, body, sideEffect) {
+            var ref = _this.ref(documentId);
+            _this.updateAfterCommitCRUD(ref.id, documentId ? 'update' : 'create', body);
+            var baseExpression = function () { return _this.batch.set(ref, body, { merge: true }); };
+            _this.expressionToQueue(baseExpression, sideEffect);
+        };
+        this.deleteToQueue = function (documentId, sideEffect) {
+            var ref = _this.ref(documentId);
+            _this.updateAfterCommitCRUD(ref.id, 'delete', {});
+            var baseExpression = function () { return _this.batch.delete(ref); };
             _this.expressionToQueue(baseExpression, sideEffect);
         };
         this.expressionToQueue = function (expression, sideEffect) {
@@ -101,18 +110,18 @@ var MoyFirestoreManager = /** @class */ (function () {
                 _this.commitQueue.push(sideEffect ? exprToObs.pipe(rxjs_1.tap({ next: function () { return sideEffect(); } })) : exprToObs);
             }
         };
-        this.batchToQueue = function (documentId, body, sideEffect) {
-            var ref = _this.ref(documentId);
-            var baseExpression = function () { return _this.batch.set(ref, body, { merge: true }); };
-            _this.expressionToQueue(baseExpression, sideEffect);
-        };
         this.ref = function (id) {
-            return _this.fs.doc(_this.collection + "/" + id);
+            var collectionRef = _this.fs.collection(_this.collection);
+            return id ? collectionRef.doc(id) : collectionRef.doc();
+        };
+        this.updateAfterCommitCRUD = function (id, action, body) {
+            var _a;
+            _this.afterCommitCRUD[action][id] = __assign(__assign({}, (((_a = _this.afterCommitCRUD[action][id]) === null || _a === void 0 ? void 0 : _a.body) || {})), body);
         };
         this.reset = function () {
             _this.batch = _this.fs.batch();
             _this.commitQueue = [];
-            _this.readDocumentsMap = {};
+            _this.afterCommitCRUD = { create: {}, read: {}, update: {}, delete: {} };
         };
     }
     return MoyFirestoreManager;
