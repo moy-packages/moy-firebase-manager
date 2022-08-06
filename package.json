@@ -1,6 +1,6 @@
 {
-  "name": "@moy-packages/moy-firebase-manager",
-  "version": "1.1.2",
+  "name": "moy-firebase-manager",
+  "version": "1.1.4",
   "description": "A firebase manager to simplify handling storage and such",
   "main": "dist/index.js",
   "scripts": {
@@ -15,6 +15,10 @@
     "name": "Francisco Santorelli",
     "email": "oxspit@gmail.com"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moy-packages/moy-firebase-manager"
+  },
   "license": "ISC",
   "devDependencies": {
     "@types/jest": "^28.1.6",
@@ -24,8 +28,5 @@
   "dependencies": {
     "firebase-admin": "^11.0.1",
     "rxjs": "^7.5.6"
-  },
-  "publishConfig": {
-    "registry": "git://github.com/moy-packages/moy-firebase-manager.git"
   }
 }

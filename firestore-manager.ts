@@ -1,4 +1,4 @@
-import { concatMap, defer, expand, from, Observable, of, skipWhile, take, tap } from 'rxjs';
+import { concatMap, defer, expand, from, Observable, of, skipWhile, take, tap, map } from 'rxjs';
 import * as fbApp from 'firebase-admin';
 
 function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observable<any>[] }) {
@@ -13,34 +13,30 @@ function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observab
   }
 }
 
+type CRUD = 'create' | 'read' | 'update' | 'delete';
 export class MoyFirestoreManager {
   private fs = this.admin.firestore();
   private batch = this.fs.batch();
   private commitQueue: Observable<any>[] = [];
-  private readDocumentsMap: { [documentId: string]: any } = {};
+  private afterCommitCRUD: { [documentId: string]: { action: CRUD, body: any } } = {};
 
   constructor(private admin: typeof fbApp, private collection: string) {}
 
   doc = (id: string) => {
-    return this.readDocumentsMap[id];
+    return this.afterCommitCRUD[id].body;
   }
 
-  commit = ({ dontCommitAndReturnExpression }: { dontCommitAndReturnExpression: boolean } = { dontCommitAndReturnExpression: false }) => {
+  commit = () => {
     const obsIterator = obsIteratorFromDynamicArray({ dynamicArray: this.commitQueue });
 
-    const committingObs = of(true).pipe(
+    return of(true).pipe(
       expand(() => obsIterator.next().value || of('__END__')),
       skipWhile(v => v !== '__END__'),
       take(1),
       concatMap(() => from(this.batch.commit())),
+      map(() => this.afterCommitCRUD),
       tap(() => this.reset()),
     );
-
-    if (dontCommitAndReturnExpression) {
-      return committingObs;
-    }
-
-    committingObs.subscribe();
   }
 
   readToQueue = (prop: string, values: string[], sideEffect?: () => void): void => {
@@ -48,10 +44,26 @@ export class MoyFirestoreManager {
       this.fs.collection(this.collection).where(prop, 'in', values).get()
     ).pipe(
       tap(query => query.docs.forEach(
-        d => this.readDocumentsMap[d.id] = { ...d.data(), uid: d.id }
+        d => this.updateAfterCommitCRUD(d.id, 'read', { ...d.data(), uid: d.id })
       ))
     );
 
+    this.expressionToQueue(baseExpression, sideEffect);
+  }
+
+  batchToQueue = (documentId: string | null, body: { [key: string]: any }, sideEffect?: () => void): void => {
+    const ref = this.ref(documentId);
+
+    this.updateAfterCommitCRUD(ref.id, documentId ? 'update' : 'create', body);
+    const baseExpression = () => this.batch.set(ref, body, { merge: true });
+    this.expressionToQueue(baseExpression, sideEffect);
+  }
+
+  deleteToQueue = (documentId: string, sideEffect?: () => void): void => {
+    const ref = this.ref(documentId);
+
+    this.updateAfterCommitCRUD(ref.id, 'delete', {});
+    const baseExpression = () => this.batch.delete(ref);
     this.expressionToQueue(baseExpression, sideEffect);
   }
   
@@ -64,19 +76,21 @@ export class MoyFirestoreManager {
     }
   }
 
-  batchToQueue = (documentId: string, body: { [key: string]: any }, sideEffect?: () => void): void => {
-    const ref = this.ref(documentId);
-    const baseExpression = () => this.batch.set(ref, body, { merge: true });
-    this.expressionToQueue(baseExpression, sideEffect);
+  private ref = (id: string | null): fbApp.firestore.DocumentReference => {
+    const collectionRef = this.fs.collection(this.collection);
+    return id ? collectionRef.doc(id) : collectionRef.doc();
   }
 
-  private ref = (id: string): fbApp.firestore.DocumentReference => {
-    return this.fs.doc(`${this.collection}/${id}`);
+  private updateAfterCommitCRUD = (id: string, action: CRUD, body: any) => {
+    this.afterCommitCRUD[id] = {
+      action,
+      body: { ...(this.afterCommitCRUD[id]?.body || {}), ...body }
+    }
   }
 
   private reset = (): void => {
     this.batch = this.fs.batch();
     this.commitQueue = [];
-    this.readDocumentsMap = {};
+    this.afterCommitCRUD = {};
   }
 }

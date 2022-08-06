@@ -1,5 +1,7 @@
 import { firestore } from 'firebase-admin';
 
+const NEW_DOC_CODE = '__MOCK_NEW_DOC__';
+// todo: separate this class with subclasses etc. Apply a little bit of SOLID here.
 export class MoyFirestoreMock {
   private db: { [db: string]: any };
   private fs = firestore();
@@ -29,6 +31,7 @@ export class MoyFirestoreMock {
     return jest.spyOn(this.fs, 'collection').mockImplementation((collection: string): any => {
       const dbCollection = (<any>this.db)[collection];
       return {
+        doc: (id: string | null) => this.getObjectRerferenceForPath(`${collection}/${id || NEW_DOC_CODE}`, this.db),
         where: (prop: string, operator: 'in', values: string[]) => ({
           get: (): any => {
             return new Promise(
@@ -88,8 +91,11 @@ export class MoyFirestoreMock {
       if (result[_path]) {
         result[_path] = { ...result[_path] };
         id = _path;
+      } else if (_path === NEW_DOC_CODE) {
+        id = `newId-${(Math.random()* 100000).toFixed(0)}`
+        result[id] = {};
       } else {
-        throw new Error('User does not exist');
+        throw new Error(`Document ${_path} does not exist`);
       }
       return result[_path];
     }, from);
