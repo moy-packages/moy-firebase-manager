@@ -41,7 +41,7 @@ employeeestoreManager = new MoyFirestoreManager(admin, 'employees');
 
 Then, you can start using it.
 
-### Reading any document
+### READ: Reading any document
 If on any part of your stream, there's a need to read another document, simply triggering:
 
 ```typescript
@@ -60,7 +60,7 @@ employeeManager.doc('fran-id-123'); // to return the fran with id `fran-id-123`.
 
 _Note: There's a known issue in which reading by property populates the docs to be read, but there's no way to access said objects without knowing the id beforehand. This is being solved for a future version_
 
-### Adding a batch-write to the queue
+### CREATE / UPDATE: Adding a batch-write to the queue
 
 Firestore works better if all writes that are related occur in batches. Therefore, the writes are added to a batch. And it all happens at once when `commit()` is called. All related writes should then be commited independently.
 
@@ -72,6 +72,20 @@ employeeManager.batchToQueue('juan-doc-3', { 'isOwed.fran-doc-123': 100 });
 ```
 
 this is probably a horrible document structure. But for the sake of the example, it works: You would change both documents with related data, or fail in all of them at the same time. This will happen on calling `commit()`.
+
+If you are creating an object, just passing `null` to the id will execute a write of a new object, with a new ObjectId. You can check these Ids on the return type of the `commit` function. (read more about it further).
+
+```typescript
+employeeManager.batchToQueue(null /* new Id will be created */, { debt: 100, owes: ['juan-doc-3'] });
+```
+
+### DELETE: Removing a document
+
+For this we simply call `deleteToQueue` and when committing, the document will be removed unless errors happen.
+
+```typescript
+employeeManager.deleteToQueue('id-to-delete-123');
+```
 
 ### Adding a custom expression to the Queue
 
@@ -107,7 +121,7 @@ const totalDebtModelUpdate = () => {
 }
 
 // this side effect can be added to any of the previous methods
-// Batch to queue
+// batch to queue
 employeeManager.batchToQueue('user-1', { debt: 100 }, totalDebtModelUpdate);
 
 // expression to queue
@@ -116,40 +130,82 @@ employeeManager.expressionToQueue(() => getConversionRateForDebt(100, 'eur/usd')
 // read to queue
 employeeManager.readToQueue('id', ['user-1', 'user-2'], totalDebtModelUpdate);
 
+// delete to queue
+employeeManager.deleteToQueue('id', totalDebtModelUpdate);
+
 ```
 
 ## Comitting changes
 
 Committing changes will trigger all actions in the queue, and either finish correctly or error out.
-If committing while passing the option `{ dontCommitAndReturnExpression: true }`, it will return the committing expression, instead of actually executing the commit. This is useful when one manager will be part of the queue of another manager, and we want to commit at the given queue's turn, and not when calling the method.
+The `commit()` method always returns the committer function. But `.subscribe()` has to be called on it so the commit actually triggers.
+This is useful when one manager will be part of the queue of another manager, and we want to commit at the given queue's turn, and not when adding the commit to the queue.
 
 ```typescript
 const one = new MoyFirestoreManager(admin, 'collection-1');
 const two = new MoyFirestoreManager(admin, 'collection-2');
 
-one.batchToQueue('prop', { yay: true });
-// ...
-// some other logic on two, and then we need to commit one here:
+// first some queues on two
+two.expressionToQueue(() => console.log('TWO: first message'));
+two.expressionToQueue(() => console.log('TWO: second message'));
 
-two.expressionToQueue(one.commit({ dontCommitAndReturnExpression: true }));
+// then one queue on one
+one.expressionToQueue(() => console.log('ONE: first message'));
 
-// two will wait for the turn of one in the queue before firing its commit
+// then another one on two
+two.expressionToQueue(() => console.log('TWO: third message'));
+
+// we now commit all one's queue in this step of two's queue
+two.expressionToQueue(one.commit());
+
+// we add another some more on one. It will still trigger when two calls commit().
+one.expressionToQueue(() => console.log('ONE: second message'));
+one.expressionToQueue(() => console.log('ONE: final message'));
+
+// another one on two, just to see the order in which things happen.
+two.expressionToQueue(() => console.log('TWO: final message'));
+
+two.commit().subscribe();
+
+// 'TWO: first message'
+// 'TWO: second message'
+// 'ONE: first message'
+// 'ONE: second message'
+// 'ONE: final message'
+// 'TWO: third message'
+// 'TWO: final message'
 ```
 
 Also, committing resets the batches and states inside the commit. It's similar to creating a new `MoyFirestoreManager` object, but without losing the reference.
 
-Finally, you can commit manually with rxjs methods.
+Finally, you when committing you can capture the events with rxjs methods.
 
 ```typescript
-// trigger automatic commit
-myManager.commit();
+onNext = (changes) => console.log('do something after commit', changes);
+onError = (error) => console.error('do something to handle errors');
+onComplete = (changes) => console.log('do something when this stream dies');
 
-// trigger commit manually
-myManager.commit({ dontCommitAndReturnExpression: true }).subscribe({
-  next: () => console.log('do something after commit'),
-  error: () => console.error('do something to handle errors'),
-  complete: () => console.log('do something when this stream dies'),
+myManager.commit().subscribe({
+  next: () => onNext(),
+  error: () => onError(),
+  complete: () => onComplete(),
 })
+```
+
+Committing will pass an object to the subcribe of the type `{ [id: string]: any }` which includes all document's `id: body`, with the type of CRUD action done.
+For example:
+
+```typescript
+{
+  create: {
+    'id-1-created': { foo: 'bar', amount: 10 },
+  },
+  read: {
+    'id-3': { foo: 'bar', hey: 'whatddup' },
+  },
+  update: {},
+  delete: { 'byebye-1': {} }
+}
 ```
 
 ## Testing

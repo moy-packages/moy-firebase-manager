@@ -13,17 +13,25 @@ function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observab
   }
 }
 
+interface DocumentDictionary { [id: string]: any };
+interface AfterCommitHistory {
+  read: DocumentDictionary;
+  create: DocumentDictionary;
+  update: DocumentDictionary;
+  delete: DocumentDictionary;
+}
+
 type CRUD = 'create' | 'read' | 'update' | 'delete';
 export class MoyFirestoreManager {
   private fs = this.admin.firestore();
   private batch = this.fs.batch();
   private commitQueue: Observable<any>[] = [];
-  private afterCommitCRUD: { [documentId: string]: { action: CRUD, body: any } } = {};
+  private afterCommitCRUD: AfterCommitHistory = { create: {}, read: {}, update: {}, delete: {} };
 
   constructor(private admin: typeof fbApp, private collection: string) {}
 
   doc = (id: string) => {
-    return this.afterCommitCRUD[id].body;
+    return this.afterCommitCRUD.create[id]?.body;
   }
 
   commit = () => {
@@ -82,15 +90,15 @@ export class MoyFirestoreManager {
   }
 
   private updateAfterCommitCRUD = (id: string, action: CRUD, body: any) => {
-    this.afterCommitCRUD[id] = {
-      action,
-      body: { ...(this.afterCommitCRUD[id]?.body || {}), ...body }
-    }
+    this.afterCommitCRUD[action][id] = {
+      ...(this.afterCommitCRUD[action][id]?.body || {}),
+      ...body
+    };
   }
 
   private reset = (): void => {
     this.batch = this.fs.batch();
     this.commitQueue = [];
-    this.afterCommitCRUD = {};
+    this.afterCommitCRUD = { create: {}, read: {}, update: {}, delete: {} };
   }
 }
