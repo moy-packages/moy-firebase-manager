@@ -14,7 +14,7 @@ function *obsIteratorFromDynamicArray({ dynamicArray }: { dynamicArray: Observab
 }
 
 interface DocumentDictionary { [id: string]: any };
-interface AfterCommitHistory {
+export interface AfterCommitHistory {
   read: DocumentDictionary;
   create: DocumentDictionary;
   update: DocumentDictionary;
@@ -30,8 +30,12 @@ export class MoyFirestoreManager {
 
   constructor(private admin: typeof fbApp, private collection: string) {}
 
-  doc = (id: string): any => {
+  read = (id: string): any => {
     return this.afterCommitCRUD.read[id];
+  }
+
+  newDoc = (): string => {
+    return this.fs.collection(this.collection).doc().id;
   }
 
   commit = (): Observable<AfterCommitHistory> => {

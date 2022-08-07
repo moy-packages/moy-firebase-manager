@@ -55,7 +55,7 @@ Do notice that this read has to be pushed to the queue before any other expressi
 all these reads can be accessed on any expression pushed to the queue by calling (inside the expression):
 
 ```typescript
-employeeManager.doc('fran-id-123'); // to return the fran with id `fran-id-123`.
+employeeManager.read('fran-id-123'); // to return the fran with id `fran-id-123`.
 ```
 
 _Note: There's a known issue in which reading by property populates the docs to be read, but there's no way to access said objects without knowing the id beforehand. This is being solved for a future version_
@@ -99,8 +99,8 @@ employeeManager.expressionToQueue(changeInOffice);
 
 // add a custom expression to the queue
 const calculateAverageDebtBeforePatching = () => {
-  employeer1 = firestoreManager.doc('user-1');
-  employeer2 = firestoreManager.doc('user-2');
+  employeer1 = firestoreManager.read('user-1');
+  employeer2 = firestoreManager.read('user-2');
 
   this.average = (user1.debt + user2.debt) / 2;
 }

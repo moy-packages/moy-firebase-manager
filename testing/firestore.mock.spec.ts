@@ -92,7 +92,7 @@ export class MoyFirestoreMock {
         result[_path] = { ...result[_path] };
         id = _path;
       } else if (_path === NEW_DOC_CODE) {
-        id = `newId-${(Math.random()* 100000).toFixed(0)}`
+        id = `newId-${(Math.random()* 100000).toFixed(0)}`;
         result[id] = {};
       } else {
         throw new Error(`Document ${_path} does not exist`);
