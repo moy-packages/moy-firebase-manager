@@ -77,8 +77,11 @@ var MoyFirestoreManager = /** @class */ (function () {
         this.batch = this.fs.batch();
         this.commitQueue = [];
         this.afterCommitCRUD = { create: {}, read: {}, update: {}, delete: {} };
-        this.doc = function (id) {
+        this.read = function (id) {
             return _this.afterCommitCRUD.read[id];
+        };
+        this.newDoc = function () {
+            return _this.fs.collection(_this.collection).doc().id;
         };
         this.commit = function () {
             var obsIterator = obsIteratorFromDynamicArray({ dynamicArray: _this.commitQueue });
