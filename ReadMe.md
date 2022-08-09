@@ -212,3 +212,16 @@ For example:
 
 This part basically exists because I use it. I created a Mock for this Manager to be used in Jest testing suites. It mocks calls to different firestore methods (from `firebase-admin`) and updates a passed MockDb that has been pre-created on init.
 Problem is: I've only covered what I use. So hardly reusable by other projects.
+
+```typescript
+const FAKE_DB_TO_USE = {
+  users: {
+    user_1: {
+      name: 'hey',
+      salary: 500,
+    }
+  }
+}
+
+const firestoreMock = new FirestoreMock(FAKE_DB_TO_USE, admin.firestore());
+```

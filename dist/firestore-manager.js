@@ -81,7 +81,9 @@ var MoyFirestoreManager = /** @class */ (function () {
             return _this.afterCommitCRUD.read[id];
         };
         this.newDoc = function () {
-            return _this.fs.collection(_this.collection).doc().id;
+            var newDocId = _this.fs.collection(_this.collection).doc().id;
+            _this.afterCommitCRUD.create[newDocId] = { uid: newDocId };
+            return newDocId;
         };
         this.commit = function () {
             var obsIterator = obsIteratorFromDynamicArray({ dynamicArray: _this.commitQueue });
@@ -93,7 +95,8 @@ var MoyFirestoreManager = /** @class */ (function () {
         };
         this.batchToQueue = function (documentId, body, sideEffect) {
             var ref = _this.ref(documentId);
-            _this.updateAfterCommitCRUD(ref.id, documentId ? 'update' : 'create', body);
+            var isNewDoc = _this.afterCommitCRUD.create[documentId] != null;
+            _this.updateAfterCommitCRUD(ref.id, isNewDoc ? 'create' : 'update', body);
             var baseExpression = function () { return _this.batch.set(ref, body, { merge: true }); };
             _this.expressionToQueue(baseExpression, sideEffect);
         };
@@ -104,7 +107,7 @@ var MoyFirestoreManager = /** @class */ (function () {
             _this.expressionToQueue(baseExpression, sideEffect);
         };
         this.expressionToQueue = function (expression, sideEffect) {
-            if (expression instanceof rxjs_1.Observable) {
+            if (rxjs_1.isObservable(expression)) {
                 _this.commitQueue.push(sideEffect ? expression.pipe(rxjs_1.tap({ next: function () { return sideEffect(); } })) : expression);
             }
             else {
@@ -113,17 +116,14 @@ var MoyFirestoreManager = /** @class */ (function () {
             }
         };
         this.ref = function (id) {
-            var collectionRef = _this.fs.collection(_this.collection);
-            return id ? collectionRef.doc(id) : collectionRef.doc();
+            return _this.fs.collection(_this.collection).doc(id);
         };
         this.updateAfterCommitCRUD = function (id, action, body) {
-            var _a;
-            _this.afterCommitCRUD[action][id] = __assign(__assign({}, (((_a = _this.afterCommitCRUD[action][id]) === null || _a === void 0 ? void 0 : _a.body) || {})), body);
+            _this.afterCommitCRUD[action][id] = __assign(__assign({}, (_this.afterCommitCRUD[action][id] || {})), body);
         };
         this.reset = function () {
             _this.batch = _this.fs.batch();
             _this.commitQueue = [];
-            _this.afterCommitCRUD = { create: {}, read: {}, update: {}, delete: {} };
         };
     }
     return MoyFirestoreManager;
