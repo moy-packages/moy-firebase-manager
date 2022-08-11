@@ -1,4 +1,5 @@
 import { firestore } from 'firebase-admin';
+import { deepCopy } from './utils';
 
 const NEW_DOC_CODE = '__MOCK_NEW_DOC__';
 // todo: separate this class with subclasses etc. Apply a little bit of SOLID here.
@@ -7,8 +8,8 @@ export class MoyFirestoreMock {
   private batchDb: { [db: string]: any };
 
   constructor(private readonly MOCK_DB_TO_USE: { [db: string]: any }, private fs: firestore.Firestore) {
-    this.db = this.deepCopy(this.MOCK_DB_TO_USE);
-    this.batchDb = this.deepCopy(this.MOCK_DB_TO_USE);
+    this.db = deepCopy(this.MOCK_DB_TO_USE);
+    this.batchDb = deepCopy(this.MOCK_DB_TO_USE);
     this.spyOnBatch();
     this.spyOnDoc();
     this.spyOnCollection();
@@ -19,8 +20,8 @@ export class MoyFirestoreMock {
   }
 
   reset(): void {
-    this.db = this.deepCopy(this.MOCK_DB_TO_USE);
-    this.batchDb = this.deepCopy(this.MOCK_DB_TO_USE);
+    this.db = deepCopy(this.MOCK_DB_TO_USE);
+    this.batchDb = deepCopy(this.MOCK_DB_TO_USE);
   }
 
   private spyOnDoc = (): jest.SpyInstance => {
@@ -40,7 +41,7 @@ export class MoyFirestoreMock {
               (resolves) => resolves({
                 docs: Object.keys(dbCollection).reduce((results, uid: string) => {
                   if (values.includes(dbCollection[uid][prop])) {
-                    results.push({ id: uid, data: () => this.deepCopy(dbCollection[uid]) });
+                    results.push({ id: uid, data: () => deepCopy(dbCollection[uid]) });
                   }
                   return results;
                 }, [] as any[])
@@ -124,14 +125,5 @@ export class MoyFirestoreMock {
       },
       __result: resultingData,
     }
-  }
-
-  private deepCopy<T>(db: T): T {
-    return Object.keys(db).reduce((built, key) => {
-      if (typeof built[key] === 'object') {
-        built[key] = this.deepCopy(built[key]);
-      }
-      return built;
-    }, { ...db } as any);
   }
 }

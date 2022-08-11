@@ -1,1 +1,1 @@
-export * from './firestore.mock.spec';
+export * from './firestore.mock';
