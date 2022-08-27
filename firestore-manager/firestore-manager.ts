@@ -36,9 +36,7 @@ export class MoyFirestoreManager {
   }
 
   readToQueue = (prop: string, values: string[], sideEffect?: () => void): void => {
-    const baseExpression = from(
-      this.fs.collection(this.collection).where(prop, 'in', values).get()
-    ).pipe(
+    const baseExpression = from(this.queryByProp(prop, values)).pipe(
       tap(query => query.docs.forEach(
         d => this.updateAfterCommitCRUD(d.id, CRUD.Read, { ...d.data(), uid: d.id })
       ))
@@ -48,7 +46,6 @@ export class MoyFirestoreManager {
   }
 
   batchToQueue = (documentId: string, body: { [key: string]: any }, sideEffect?: () => void): void => {
-    body.uid = documentId;
     const ref = this.ref(documentId);
     const isNewDoc = this.afterCommitCRUD.create[documentId] != null;
 
@@ -73,6 +70,12 @@ export class MoyFirestoreManager {
       ? observableExpression.pipe(tap({ next: () => sideEffect() }))
       : observableExpression
     );
+  }
+
+  private queryByProp(prop: string, values: string[]): Promise<fbApp.firestore.QuerySnapshot<fbApp.firestore.DocumentData>> {
+    return prop === 'uid'
+      ? this.fs.collection(this.collection).where(fbApp.firestore.FieldPath.documentId(), 'in', values).get()
+      : this.fs.collection(this.collection).where(prop, 'in', values).get();
   }
 
   private ref = (id: string): fbApp.firestore.DocumentReference => {
