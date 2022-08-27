@@ -48,6 +48,7 @@ export class MoyFirestoreManager {
   }
 
   batchToQueue = (documentId: string, body: { [key: string]: any }, sideEffect?: () => void): void => {
+    body.uid = documentId;
     const ref = this.ref(documentId);
     const isNewDoc = this.afterCommitCRUD.create[documentId] != null;
 
